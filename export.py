@@ -5,8 +5,15 @@ import csv
 import random
 import time
 
+
+def getcompany(Director,branch):
+    global companys
+    companys[Director['id']+'/'+branch['id']]=Director['name']+"*"+branch['name']
+    if 'ou' in branch.keys():
+        for branch1 in branch['ou']:
+            getcompany(Director,branch1)
 baseurl = "https://mail.baidu.com" # 域名
-cookie = "粘贴cookie到此处"
+cookie = "粘贴cookie到这里"
 
 try:
     cookiesid = cookie.split("Coremail.sid=")[1].split(";")[0] # cookie或者url中去找到的
@@ -32,20 +39,8 @@ res = requests.post(getDirectoriesurl,data=body,headers=headers).json()['var']
 companys = {}
 for Director in res:  ## 多级子公司
     for branch in Director['ou']:
-        companys[Director['id']+'/'+branch['id']]=Director['name']+"*"+branch['name']
-        if  'ou' in branch.keys():
-            for branch1 in branch['ou']:
-                companys[Director['id']+'/'+branch1['id']]=Director['name']+"*"+branch1['name']
-                if 'ou' in branch1.keys():
-                    for branch2 in branch1['ou']:
-                        companys[Director['id']+'/'+branch2['id']]=Director['name']+"*"+branch2['name']
-                        if 'ou' in branch2.keys():
-                            for branch3 in branch2['ou']:
-                                companys[Director['id']+'/'+branch3['id']]=Director['name']+"*"+branch3['name']
-                                if 'ou' in branch3.keys():
-                                    for branch4 in branch3['ou']:
-                                        companys[Director['id']+'/'+branch4['id']]=Director['name']+"*"+branch4['name']
-print("共获取到子公司 "+str(len(companys))+" 个")
+        getcompany(Director,branch)
+print("共获取到子公司 "+str(len(companys))+" 个\n开始获取详情信息")
 i=0
 b=0
 filename = "".join(random.sample('zyxwvutsrqponmlkjihgfedcba',5))+".csv"
@@ -63,6 +58,6 @@ with open(filename, 'w', newline='',encoding='utf-8-sig') as csvfile:
             writer.writerow({'总公司':str(Dname),'分公司':str(Bname),'姓名':str(person['true_name']),'部门':str(person['department']),'邮箱':str(person['email']),'电话':str(person['mobile_number'])+" ",'地址':str(person['address'])})
             i+=1
         b+=1
-        if b%10==0:
+        if b%7==0: ##每获取几个子公司后进行sleep 防止IP被ban掉，可以自定修改
             time.sleep(2)
 print("共写入 "+str(i)+" 个联系人到文件 "+filename)
