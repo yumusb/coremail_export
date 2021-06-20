@@ -3,9 +3,10 @@ import requests
 import json
 import csv
 import random
+import time
 
 baseurl = "https://mail.baidu.com" # 域名
-cookie = "粘贴Cookie到此处"
+cookie = "粘贴cookie到此处"
 
 try:
     cookiesid = cookie.split("Coremail.sid=")[1].split(";")[0] # cookie或者url中去找到的
@@ -25,20 +26,43 @@ headers={
         "Cookie": "face=auto; locale=zh_CN; Coremail="+cookieCoremail+";Coremail.sid="+cookiesid
     }
 getDirectoriesurl = baseurl+"/coremail/s/json?sid="+cookiesid+"&func=oab%3AgetDirectories"
+
 body = "{\"attrIds\":[\"email\"]}"
 res = requests.post(getDirectoriesurl,data=body,headers=headers).json()['var']
+companys = {}
+for Director in res:  ## 多级子公司
+    for branch in Director['ou']:
+        companys[Director['id']+'/'+branch['id']]=Director['name']+"*"+branch['name']
+        if  'ou' in branch.keys():
+            for branch1 in branch['ou']:
+                companys[Director['id']+'/'+branch1['id']]=Director['name']+"*"+branch1['name']
+                if 'ou' in branch1.keys():
+                    for branch2 in branch1['ou']:
+                        companys[Director['id']+'/'+branch2['id']]=Director['name']+"*"+branch2['name']
+                        if 'ou' in branch2.keys():
+                            for branch3 in branch2['ou']:
+                                companys[Director['id']+'/'+branch3['id']]=Director['name']+"*"+branch3['name']
+                                if 'ou' in branch3.keys():
+                                    for branch4 in branch3['ou']:
+                                        companys[Director['id']+'/'+branch4['id']]=Director['name']+"*"+branch4['name']
+print("共获取到子公司 "+str(len(companys))+" 个")
+i=0
+b=0
 filename = "".join(random.sample('zyxwvutsrqponmlkjihgfedcba',5))+".csv"
+listurl = baseurl+"/coremail/s/json?sid="+cookiesid+"&func=oab%3AlistEx"
 with open(filename, 'w', newline='',encoding='utf-8-sig') as csvfile:
     fieldnames = ['总公司', '分公司','姓名','部门','邮箱','电话','地址']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
-    listurl = baseurl+"/coremail/s/json?sid="+cookiesid+"&func=oab%3AlistEx"
-    for Director in res:
-        for branch in Director['ou']:
-            data = '{"dn":"'+Director['id']+'/'+branch['id']+'","returnAttrs":["@id","@type","department","true_name","email","gender","mobile_number","address"],"start":0,"limit":1000000000,"defaultReturnMeetingRoom":false}'
-            branchperson = requests.post(listurl,data=data,headers=headers).json()['var']
-            print(str(Director['name'])+" "+str(branch['name'])+" 共有人员 "+str(len(branchperson))+" 个")
-            for person in branchperson:
-                writer.writerow({'总公司':str(Director['name']),'分公司':str(branch['name']),'姓名':str(person['true_name']),'部门':str(person['department']),'邮箱':str(person['email']),'电话':str(person['mobile_number'])+" ",'地址':str(person['address'])})
-                i+=1
+    for company in companys:
+        data = '{"dn":"'+company+'","returnAttrs":["@id","@type","department","true_name","email","gender","mobile_number","address"],"start":0,"limit":1000000000,"defaultReturnMeetingRoom":false}'
+        branchperson = requests.post(listurl,data=data,headers=headers).json()['var']
+        print(companys[company]+" 共有人员 "+str(len(branchperson))+" 个")
+        Dname,Bname = companys[company].split("*")
+        for person in branchperson:
+            writer.writerow({'总公司':str(Dname),'分公司':str(Bname),'姓名':str(person['true_name']),'部门':str(person['department']),'邮箱':str(person['email']),'电话':str(person['mobile_number'])+" ",'地址':str(person['address'])})
+            i+=1
+        b+=1
+        if b%10==0:
+            time.sleep(2)
 print("共写入 "+str(i)+" 个联系人到文件 "+filename)
