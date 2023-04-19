@@ -40,22 +40,31 @@ companys = {}
 for Director in res:  ## 多级子公司
     for branch in Director['ou']:
         getcompany(Director,branch)
-print("共获取到子公司 "+str(len(companys))+" 个\n开始获取详情信息")
+print("共获取到子公司 "+str(len(companys))+" 个\n开始获取字段信息")
+getattrsUrl = baseurl + "/coremail/XT5/index.jsp?sid="+cookiesid
+attrsHtml = requests.get(getattrsUrl,headers=headers).text
+attrStr = attrsHtml.split("'returnattrs':")[1].split("],")[0]
+attrList = [s.strip().strip("'") for s in attrStr[1:-1].split(',')]
+print(attrList)
 i=0
 b=0
+fieldnames = attrList
+fieldnames.insert(0,"分公司")
+fieldnames.insert(0,"总公司")
 filename = "".join(random.sample('zyxwvutsrqponmlkjihgfedcba',5))+".csv"
 listurl = baseurl+"/coremail/s/json?sid="+cookiesid+"&func=oab%3AlistEx"
 with open(filename, 'w', newline='',encoding='utf-8-sig') as csvfile:
-    fieldnames = ['总公司', '分公司','姓名','部门','邮箱','电话','地址']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
     for company in companys:
-        data = '{"dn":"'+company+'","returnAttrs":["@id","@type","department","true_name","email","gender","mobile_number","address"],"start":0,"limit":1000000000,"defaultReturnMeetingRoom":false}'
+        data = '{"dn":"'+company+'","returnAttrs":'+attrStr+'],"start":0,"limit":1000000000,"defaultReturnMeetingRoom":false}'
         branchperson = requests.post(listurl,data=data,headers=headers).json()['var']
         print(companys[company]+" 共有人员 "+str(len(branchperson))+" 个")
         Dname,Bname = companys[company].split("*")
         for person in branchperson:
-            writer.writerow({'总公司':str(Dname),'分公司':str(Bname),'姓名':str(person['true_name']),'部门':str(person['department']),'邮箱':str(person['email']),'电话':str(person['mobile_number'])+" ",'地址':str(person['address'])})
+            person['总公司'] = str(Dname)
+            person['分公司'] = str(Bname)
+            writer.writerow(person)
             i+=1
         b+=1
         if b%7==0: ##每获取几个子公司后进行sleep 防止IP被ban掉，可以自定修改
